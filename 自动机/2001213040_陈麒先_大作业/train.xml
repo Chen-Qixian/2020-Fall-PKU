@@ -1,0 +1,810 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.1//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_2.dtd'>
+<nta>
+	<declaration>// Place global declarations here.
+
+// const and variables declaration
+
+// number of entities
+const int train_num = 3;
+const int railway_num = 6;
+const int switch_num = 2;
+const int signal_num = 7;
+
+// entity id
+int train_id;
+int railway_id;
+int switch_id;
+int signal_id;
+
+// train declaration
+int train_state[train_num];
+const int IDLE = -1;
+const int BUSY = 0;
+const int UP   = 1;
+const int DOWN = 2;
+
+// railway declaration
+int ava_state[railway_num];
+const int AVA = 0;
+const int OCC = 1;
+
+// switch declaration
+int lock_state[switch_num];
+const int LOCKED = 0;
+const int UNLOCK = 1;
+
+// signal decalration
+int signal_state[signal_num];
+const int RED = 0;
+const int GREEN = 1;
+
+// router
+bool has_switch;
+int stage[railway_num];
+
+// Channels declaration
+
+// train
+chan train_request[train_num];
+chan wait[train_num];
+chan pass[train_num];
+broadcast chan train_enter[train_num];
+broadcast chan train_leave[train_num];
+
+// railway
+chan check_occ[railway_num];
+chan occ[railway_num];
+chan unocc[railway_num];
+
+// switch
+chan to_lock[switch_num];
+chan has_locked[switch_num];
+chan to_unlock[switch_num];
+chan has_unlock[switch_num];
+
+// signal
+chan to_green[signal_num];
+chan to_red[signal_num];
+chan green[signal_num];
+chan red[signal_num];
+
+// others
+chan start;
+chan end;
+
+
+// Clock declaration
+clock wait_time;
+clock checkrailway;
+clock changegreen;
+clock changered;
+clock lockswitch;
+clock unlockswitch;
+clock trainenter;
+clock trainleave;
+
+</declaration>
+	<template>
+		<name x="5" y="5">train</name>
+		<location id="id0" x="-8" y="-144">
+			<name x="-18" y="-178">IDLE</name>
+		</location>
+		<location id="id1" x="-161" y="-34">
+			<name x="-212" y="-59">START</name>
+		</location>
+		<location id="id2" x="-102" y="110">
+			<name x="-119" y="127">WAIT</name>
+		</location>
+		<location id="id3" x="85" y="110">
+			<name x="68" y="127">READY</name>
+		</location>
+		<location id="id4" x="144" y="-34">
+			<name x="152" y="-59">ENTER</name>
+		</location>
+		<init ref="id0"/>
+		<transition>
+			<source ref="id2"/>
+			<target ref="id1"/>
+			<label kind="guard" x="-289" y="85">wait_time &lt;= 21</label>
+			<label kind="synchronisation" x="-289" y="59">wait[train_id]?</label>
+			<nail x="-170" y="102"/>
+			<nail x="-195" y="51"/>
+		</transition>
+		<transition>
+			<source ref="id4"/>
+			<target ref="id0"/>
+			<label kind="synchronisation" x="59" y="-110">train_leave[train_id]!</label>
+		</transition>
+		<transition>
+			<source ref="id3"/>
+			<target ref="id4"/>
+			<label kind="synchronisation" x="110" y="42">train_enter[train_id]!</label>
+		</transition>
+		<transition>
+			<source ref="id2"/>
+			<target ref="id3"/>
+			<label kind="guard" x="-59" y="93">wait_time &lt;= 21</label>
+			<label kind="synchronisation" x="-59" y="110">pass[train_id]?</label>
+		</transition>
+		<transition>
+			<source ref="id1"/>
+			<target ref="id2"/>
+			<label kind="guard" x="-119" y="42">train_id &gt;= 0</label>
+			<label kind="synchronisation" x="-136" y="9">train_request[train_id]!</label>
+		</transition>
+		<transition>
+			<source ref="id0"/>
+			<target ref="id1"/>
+			<label kind="synchronisation" x="-110" y="-110">start?</label>
+		</transition>
+	</template>
+	<template>
+		<name>railway</name>
+		<location id="id5" x="-17" y="-102">
+			<name x="-42" y="-136">UNOCC</name>
+		</location>
+		<location id="id6" x="-212" y="68">
+			<name x="-229" y="85">JUDGE</name>
+			<label kind="invariant" x="-255" y="102">checkrailway &lt; 4</label>
+		</location>
+		<location id="id7" x="178" y="68">
+			<name x="161" y="85">OCCU</name>
+		</location>
+		<init ref="id5"/>
+		<transition>
+			<source ref="id5"/>
+			<target ref="id7"/>
+			<label kind="guard" x="187" y="-102">train_id &gt;= 0</label>
+			<label kind="synchronisation" x="187" y="-76">train_enter[train_id]?</label>
+			<label kind="assignment" x="187" y="-51">ava_state[railway_id]:=OCC</label>
+			<nail x="178" y="-102"/>
+		</transition>
+		<transition>
+			<source ref="id6"/>
+			<target ref="id5"/>
+			<label kind="guard" x="-416" y="-93">ava_state[railway_id] == AVA</label>
+			<label kind="synchronisation" x="-340" y="-68">unocc[railway_id]!</label>
+			<nail x="-212" y="-102"/>
+		</transition>
+		<transition>
+			<source ref="id7"/>
+			<target ref="id5"/>
+			<label kind="synchronisation" x="1" y="-34">train_leave[train_id]?</label>
+			<label kind="assignment" x="-8" y="-17">ava_state[railway_id]:=AVA</label>
+		</transition>
+		<transition>
+			<source ref="id6"/>
+			<target ref="id7"/>
+			<label kind="guard" x="-119" y="68">ava_state[railway_id] == OCC</label>
+			<label kind="synchronisation" x="-76" y="51">occ[railway_id]!</label>
+		</transition>
+		<transition>
+			<source ref="id5"/>
+			<target ref="id6"/>
+			<label kind="synchronisation" x="-187" y="-34">check_occ[railway_id]?</label>
+		</transition>
+	</template>
+	<template>
+		<name>_switch</name>
+		<location id="id8" x="-17" y="-144">
+			<name x="-42" y="-178">_UNLOCK</name>
+		</location>
+		<location id="id9" x="-144" y="-17">
+			<name x="-221" y="-25">TOLOCK</name>
+			<label kind="invariant" x="-229" y="-8">lockswitch &lt; 4</label>
+		</location>
+		<location id="id10" x="-8" y="110">
+			<name x="-33" y="127">_LOCKED</name>
+		</location>
+		<location id="id11" x="119" y="-17">
+			<name x="136" y="-25">TOUNLOCK</name>
+			<label kind="invariant" x="119" y="-8">unlockswitch &lt; 4</label>
+		</location>
+		<init ref="id8"/>
+		<transition>
+			<source ref="id11"/>
+			<target ref="id8"/>
+			<label kind="synchronisation" x="42" y="-110">has_unlock[switch_id]!</label>
+		</transition>
+		<transition>
+			<source ref="id10"/>
+			<target ref="id11"/>
+			<label kind="synchronisation" x="59" y="42">to_unlock[switch_id]?</label>
+			<label kind="assignment" x="34" y="68">lock_state[switch_id]:=UNLOCK</label>
+		</transition>
+		<transition>
+			<source ref="id9"/>
+			<target ref="id10"/>
+			<label kind="synchronisation" x="-238" y="42">has_locked[switch_id]!</label>
+		</transition>
+		<transition>
+			<source ref="id8"/>
+			<target ref="id9"/>
+			<label kind="synchronisation" x="-195" y="-110">to_lock[switch_id]?</label>
+			<label kind="assignment" x="-314" y="-76">lock_state[switch_id]:=LOCKED</label>
+		</transition>
+	</template>
+	<template>
+		<name>signal</name>
+		<location id="id12" x="-25" y="-110">
+			<name x="-34" y="-144">_RED</name>
+		</location>
+		<location id="id13" x="-144" y="8">
+			<name x="-229" y="0">TOGREEN</name>
+			<label kind="invariant" x="-246" y="25">changegreen &lt; 4</label>
+		</location>
+		<location id="id14" x="-25" y="127">
+			<name x="-42" y="144">_GREEN</name>
+		</location>
+		<location id="id15" x="93" y="8">
+			<name x="110" y="0">TORED</name>
+			<label kind="invariant" x="85" y="25">changered &lt; 4</label>
+		</location>
+		<init ref="id12"/>
+		<transition>
+			<source ref="id15"/>
+			<target ref="id12"/>
+			<label kind="synchronisation" x="17" y="-85">red[signal_id]!</label>
+		</transition>
+		<transition>
+			<source ref="id14"/>
+			<target ref="id15"/>
+			<label kind="synchronisation" x="34" y="68">to_red[signal_id]?</label>
+			<label kind="assignment" x="17" y="85">signal_state[signal_id]:=RED</label>
+		</transition>
+		<transition>
+			<source ref="id13"/>
+			<target ref="id14"/>
+			<label kind="synchronisation" x="-195" y="68">green[signal_id]!</label>
+		</transition>
+		<transition>
+			<source ref="id12"/>
+			<target ref="id13"/>
+			<label kind="synchronisation" x="-204" y="-85">to_green[signal_id]?</label>
+			<label kind="assignment" x="-289" y="-68">signal_state[signal_id]:=GREEN</label>
+		</transition>
+	</template>
+	<template>
+		<name>controller</name>
+		<location id="id16" x="-884" y="-501">
+			<name x="-943" y="-510">START</name>
+		</location>
+		<location id="id17" x="-884" y="-263">
+			<name x="-960" y="-272">JUDGERW</name>
+		</location>
+		<location id="id18" x="-884" y="-382">
+			<name x="-935" y="-391">RECV</name>
+			<committed/>
+		</location>
+		<location id="id19" x="-884" y="-34">
+			<name x="-943" y="-42">LOCSW</name>
+			<label kind="invariant" x="-1003" y="-25">checkrailway &lt; 4</label>
+		</location>
+		<location id="id20" x="-884" y="-144">
+			<name x="-960" y="-152">JUDGESW</name>
+			<committed/>
+		</location>
+		<location id="id21" x="-884" y="85">
+			<name x="-960" y="76">LOCWAIT</name>
+		</location>
+		<location id="id22" x="-884" y="204">
+			<name x="-952" y="196">LOCFIN</name>
+			<label kind="invariant" x="-994" y="212">lockswitch &lt; 4</label>
+		</location>
+		<location id="id23" x="-680" y="-42">
+			<name x="-765" y="-51">TOGREEN</name>
+			<committed/>
+		</location>
+		<location id="id24" x="-510" y="-42">
+			<name x="-552" y="-76">GREENWAIT</name>
+		</location>
+		<location id="id25" x="-663" y="-382">
+			<name x="-646" y="-391">FORBID</name>
+			<label kind="invariant" x="-654" y="-374">checkrailway &lt; 4</label>
+		</location>
+		<location id="id26" x="-365" y="-42">
+			<name x="-382" y="-76">APPR</name>
+			<label kind="invariant" x="-493" y="-25">changegreen &lt; 4 &amp;&amp; wait_time &lt;= 21</label>
+		</location>
+		<location id="id27" x="-221" y="-42">
+			<name x="-214" y="-76">ENTERWAIT</name>
+			<label kind="invariant" x="-223" y="-25">trainenter &lt; 10</label>
+		</location>
+		<location id="id28" x="-221" y="-153">
+			<name x="-195" y="-161">TRAINENTER</name>
+			<label kind="invariant" x="-476" y="-161">trainenter&lt;10 &amp;&amp; trainleave &lt; 200</label>
+		</location>
+		<location id="id29" x="-221" y="-255">
+			<name x="-195" y="-263">TRAINLEAVE</name>
+			<label kind="invariant" x="-212" y="-246">trainleave &lt; 200</label>
+		</location>
+		<location id="id30" x="-408" y="-255">
+			<name x="-493" y="-263">UNLOCSW</name>
+		</location>
+		<location id="id31" x="-408" y="-382">
+			<name x="-501" y="-390">UNLOCFIN</name>
+			<label kind="invariant" x="-527" y="-373">unlockswitch &lt; 4</label>
+		</location>
+		<location id="id32" x="-221" y="-382">
+			<name x="-204" y="-391">JUDGEFIN</name>
+			<committed/>
+		</location>
+		<location id="id33" x="-221" y="-493">
+			<name x="-204" y="-501">TORED</name>
+		</location>
+		<location id="id34" x="-221" y="-612">
+			<name x="-204" y="-620">REDFIN</name>
+			<label kind="invariant" x="-212" y="-603">changered &lt; 4</label>
+		</location>
+		<init ref="id16"/>
+		<transition>
+			<source ref="id34"/>
+			<target ref="id16"/>
+			<label kind="synchronisation" x="-544" y="-629">end!</label>
+			<nail x="-884" y="-612"/>
+		</transition>
+		<transition>
+			<source ref="id29"/>
+			<target ref="id32"/>
+			<label kind="guard" x="-221" y="-331">has_switch == false</label>
+		</transition>
+		<transition>
+			<source ref="id33"/>
+			<target ref="id34"/>
+			<label kind="synchronisation" x="-221" y="-569">red[signal_id]?</label>
+		</transition>
+		<transition>
+			<source ref="id32"/>
+			<target ref="id33"/>
+			<label kind="synchronisation" x="-221" y="-454">to_red[signal_id]!</label>
+			<label kind="assignment" x="-221" y="-437">changered := 0</label>
+		</transition>
+		<transition>
+			<source ref="id31"/>
+			<target ref="id32"/>
+		</transition>
+		<transition>
+			<source ref="id30"/>
+			<target ref="id31"/>
+			<label kind="synchronisation" x="-408" y="-331">has_unlock[switch_id]?</label>
+		</transition>
+		<transition>
+			<source ref="id29"/>
+			<target ref="id30"/>
+			<label kind="guard" x="-374" y="-255">has_switch == true</label>
+			<label kind="synchronisation" x="-374" y="-238">to_unlock[switch_id]!</label>
+			<label kind="assignment" x="-374" y="-221">unlockswitch := 0</label>
+		</transition>
+		<transition>
+			<source ref="id28"/>
+			<target ref="id29"/>
+			<label kind="synchronisation" x="-221" y="-221">train_leave[train_id]?</label>
+		</transition>
+		<transition>
+			<source ref="id27"/>
+			<target ref="id28"/>
+			<label kind="synchronisation" x="-221" y="-119">train_enter[train_id]?</label>
+			<label kind="assignment" x="-221" y="-102">trainleave := 0</label>
+		</transition>
+		<transition>
+			<source ref="id26"/>
+			<target ref="id27"/>
+			<label kind="synchronisation" x="-340" y="-59">pass[train_id]!</label>
+		</transition>
+		<transition>
+			<source ref="id24"/>
+			<target ref="id26"/>
+			<label kind="synchronisation" x="-492" y="-59">green[signal_id]?</label>
+			<label kind="assignment" x="-484" y="-42">trainenter := 0</label>
+		</transition>
+		<transition>
+			<source ref="id22"/>
+			<target ref="id23"/>
+			<nail x="-680" y="204"/>
+		</transition>
+		<transition>
+			<source ref="id20"/>
+			<target ref="id23"/>
+			<label kind="guard" x="-850" y="-161">has_switch == false</label>
+			<nail x="-680" y="-144"/>
+		</transition>
+		<transition>
+			<source ref="id25"/>
+			<target ref="id16"/>
+			<label kind="synchronisation" x="-816" y="-518">wait[train_id]!</label>
+			<nail x="-663" y="-501"/>
+		</transition>
+		<transition>
+			<source ref="id17"/>
+			<target ref="id25"/>
+			<label kind="synchronisation" x="-816" y="-280">occ[railway_id]?</label>
+			<nail x="-663" y="-263"/>
+		</transition>
+		<transition>
+			<source ref="id23"/>
+			<target ref="id24"/>
+			<label kind="synchronisation" x="-662" y="-59">to_green[signal_id]!</label>
+			<label kind="assignment" x="-654" y="-42">changegreen := 0</label>
+		</transition>
+		<transition>
+			<source ref="id21"/>
+			<target ref="id22"/>
+			<label kind="synchronisation" x="-1037" y="127">has_locked[switch_id]?</label>
+		</transition>
+		<transition>
+			<source ref="id19"/>
+			<target ref="id21"/>
+			<label kind="synchronisation" x="-884" y="8">to_lock[switch_id]!</label>
+			<label kind="assignment" x="-884" y="25">lockswitch := 0</label>
+		</transition>
+		<transition>
+			<source ref="id20"/>
+			<target ref="id19"/>
+			<label kind="guard" x="-1020" y="-102">has_switch == true</label>
+		</transition>
+		<transition>
+			<source ref="id17"/>
+			<target ref="id20"/>
+			<label kind="synchronisation" x="-884" y="-220">unocc[railway_id]?</label>
+		</transition>
+		<transition>
+			<source ref="id18"/>
+			<target ref="id17"/>
+			<label kind="synchronisation" x="-884" y="-339">check_occ[railway_id]!</label>
+			<label kind="assignment" x="-884" y="-322">checkrailway := 0</label>
+		</transition>
+		<transition>
+			<source ref="id16"/>
+			<target ref="id18"/>
+			<label kind="guard" x="-884" y="-475">train_id &gt;= 0</label>
+			<label kind="synchronisation" x="-884" y="-458">train_request[train_id]?</label>
+			<label kind="assignment" x="-884" y="-441">wait_time := 0</label>
+		</transition>
+	</template>
+	<template>
+		<name>router</name>
+		<declaration>void initial()
+{
+	for (i:int[0, railway_num - 1])
+	{
+		stage[i] = IDLE;
+	}
+	for (i:int[0, train_num - 1])
+	{
+		train_state[i] = IDLE;
+	}
+}
+int picking()
+{
+	for (i:int[0, train_num - 1])
+	{
+		if (train_state[i] == IDLE)
+		{
+            train_state[i] = BUSY;
+			return i;
+		}
+	}
+	return -1;
+}
+int pick_signal(int ID)
+{
+    if (train_state[ID] == UP)
+        return 4;
+    if (train_state[ID] == DOWN)
+        return 5;
+    return -1;
+}</declaration>
+		<location id="id35" x="-578" y="-68">
+			<name x="-637" y="-76">START</name>
+		</location>
+		<location id="id36" x="-578" y="76">
+			<name x="-646" y="67">STAGE6</name>
+			<committed/>
+		</location>
+		<location id="id37" x="-578" y="229">
+			<name x="-646" y="220">STAGE5</name>
+			<committed/>
+		</location>
+		<location id="id38" x="-578" y="391">
+			<name x="-646" y="382">STAGE4</name>
+			<committed/>
+		</location>
+		<location id="id39" x="-578" y="552">
+			<name x="-646" y="544">STAGE3</name>
+			<committed/>
+		</location>
+		<location id="id40" x="-578" y="714">
+			<name x="-646" y="705">STAGE2</name>
+			<committed/>
+		</location>
+		<location id="id41" x="-578" y="858">
+			<name x="-646" y="849">STAGE1</name>
+			<committed/>
+		</location>
+		<location id="id42" x="-374" y="76">
+			<name x="-391" y="42">ACT6</name>
+			<committed/>
+		</location>
+		<location id="id43" x="-161" y="76">
+			<name x="-170" y="42">FIN6</name>
+		</location>
+		<location id="id44" x="-374" y="229">
+			<name x="-391" y="195">ACT5</name>
+			<committed/>
+		</location>
+		<location id="id45" x="-161" y="229">
+			<name x="-171" y="195">FIN5</name>
+		</location>
+		<location id="id46" x="-374" y="391">
+			<name x="-391" y="357">ACT4</name>
+			<committed/>
+		</location>
+		<location id="id47" x="-161" y="391">
+			<name x="-171" y="357">FIN4</name>
+		</location>
+		<location id="id48" x="-374" y="552">
+			<name x="-391" y="518">ACT3</name>
+			<committed/>
+		</location>
+		<location id="id49" x="-161" y="552">
+			<name x="-171" y="518">FIN3</name>
+		</location>
+		<location id="id50" x="-374" y="714">
+			<name x="-391" y="680">ACT2</name>
+			<committed/>
+		</location>
+		<location id="id51" x="-161" y="714">
+			<name x="-171" y="680">FIN2</name>
+		</location>
+		<location id="id52" x="-374" y="858">
+			<name x="-391" y="824">ACT1</name>
+			<committed/>
+		</location>
+		<location id="id53" x="-161" y="858">
+			<name x="-171" y="824">FIN1</name>
+		</location>
+		<branchpoint id="id54" x="-272" y="714">
+		</branchpoint>
+		<init ref="id35"/>
+		<transition>
+			<source ref="id51"/>
+			<target ref="id41"/>
+			<label kind="synchronisation" x="-331" y="790">end?</label>
+			<label kind="assignment" x="-364" y="807">stage[1] := IDLE</label>
+			<nail x="-102" y="714"/>
+			<nail x="-102" y="807"/>
+			<nail x="-382" y="807"/>
+		</transition>
+		<transition>
+			<source ref="id54"/>
+			<target ref="id51"/>
+			<label kind="assignment" x="-272" y="756">stage[3] := train_id,
+train_state[train_id] := DOWN</label>
+			<label kind="probability" x="-289" y="739">1</label>
+			<nail x="-272" y="790"/>
+		</transition>
+		<transition>
+			<source ref="id54"/>
+			<target ref="id51"/>
+			<label kind="assignment" x="-272" y="629">stage[2] := train_id,
+train_state[train_id] := UP</label>
+			<label kind="probability" x="-289" y="680">1</label>
+			<nail x="-272" y="654"/>
+		</transition>
+		<transition>
+			<source ref="id50"/>
+			<target ref="id54"/>
+			<label kind="synchronisation" x="-340" y="697">start!</label>
+		</transition>
+		<transition>
+			<source ref="id53"/>
+			<target ref="id36"/>
+			<label kind="synchronisation" x="-59" y="841">end?</label>
+			<nail x="34" y="858"/>
+			<nail x="34" y="-25"/>
+			<nail x="-408" y="-25"/>
+		</transition>
+		<transition>
+			<source ref="id52"/>
+			<target ref="id36"/>
+			<label kind="guard" x="-595" y="960">train_id == -1</label>
+			<nail x="-374" y="960"/>
+			<nail x="-714" y="960"/>
+			<nail x="-714" y="144"/>
+		</transition>
+		<transition>
+			<source ref="id52"/>
+			<target ref="id53"/>
+			<label kind="guard" x="-365" y="875">train_id &gt;= 0 &amp;&amp; train_id &lt; train_num</label>
+			<label kind="synchronisation" x="-289" y="841">start!</label>
+			<label kind="assignment" x="-331" y="858">stage[1] := train_id</label>
+		</transition>
+		<transition>
+			<source ref="id41"/>
+			<target ref="id52"/>
+			<label kind="assignment" x="-544" y="858">train_id := picking(),
+railway_id := 0,
+has_switch := false,
+signal_id := 0</label>
+		</transition>
+		<transition>
+			<source ref="id40"/>
+			<target ref="id50"/>
+			<label kind="guard" x="-535" y="697">stage[1] != IDLE</label>
+			<label kind="assignment" x="-544" y="714">train_id := stage[1],
+railway_id := 1,
+has_switch := true,
+switch_id := 0,
+signal_id := 1</label>
+		</transition>
+		<transition>
+			<source ref="id49"/>
+			<target ref="id40"/>
+			<label kind="synchronisation" x="-357" y="620">end?</label>
+			<label kind="assignment" x="-408" y="637">stage[2] := IDLE</label>
+		</transition>
+		<transition>
+			<source ref="id48"/>
+			<target ref="id49"/>
+			<label kind="synchronisation" x="-289" y="535">start!</label>
+			<label kind="assignment" x="-340" y="552">stage[4] := train_id</label>
+		</transition>
+		<transition>
+			<source ref="id39"/>
+			<target ref="id48"/>
+			<label kind="guard" x="-535" y="535">stage[2] != IDLE</label>
+			<label kind="assignment" x="-544" y="552">train_id := stage[2],
+railway_id := 2,
+has_switch := false,
+signal_id := 3</label>
+		</transition>
+		<transition>
+			<source ref="id47"/>
+			<target ref="id39"/>
+			<label kind="synchronisation" x="-255" y="425">end?</label>
+			<label kind="assignment" x="-297" y="442">stage[3] := IDLE</label>
+		</transition>
+		<transition>
+			<source ref="id46"/>
+			<target ref="id47"/>
+			<label kind="synchronisation" x="-289" y="374">start!</label>
+			<label kind="assignment" x="-340" y="391">stage[4] := train_id</label>
+		</transition>
+		<transition>
+			<source ref="id38"/>
+			<target ref="id46"/>
+			<label kind="guard" x="-535" y="374">stage[3] != IDLE</label>
+			<label kind="assignment" x="-544" y="391">train_id := stage[3],
+railway_id := 3,
+has_switch := false,
+signal_id := 2</label>
+		</transition>
+		<transition>
+			<source ref="id45"/>
+			<target ref="id38"/>
+			<label kind="synchronisation" x="-246" y="255">end?</label>
+			<label kind="assignment" x="-289" y="272">stage[4] := IDLE</label>
+		</transition>
+		<transition>
+			<source ref="id44"/>
+			<target ref="id45"/>
+			<label kind="synchronisation" x="-289" y="212">start!</label>
+			<label kind="assignment" x="-340" y="229">stage[5] := train_id</label>
+		</transition>
+		<transition>
+			<source ref="id37"/>
+			<target ref="id44"/>
+			<label kind="guard" x="-535" y="212">stage[4] != IDLE</label>
+			<label kind="assignment" x="-544" y="229">train_id := stage[4],
+railway_id := 4,
+has_switch := true,
+switch_id := 1,
+signal_id := pick_signal(train_id)</label>
+		</transition>
+		<transition>
+			<source ref="id43"/>
+			<target ref="id37"/>
+			<label kind="synchronisation" x="-246" y="102">end?</label>
+			<label kind="assignment" x="-289" y="119">stage[5] := IDLE</label>
+		</transition>
+		<transition>
+			<source ref="id42"/>
+			<target ref="id43"/>
+			<label kind="synchronisation" x="-289" y="59">start!</label>
+			<label kind="assignment" x="-357" y="76">train_state[train_id] := IDLE</label>
+		</transition>
+		<transition>
+			<source ref="id36"/>
+			<target ref="id42"/>
+			<label kind="guard" x="-527" y="59">stage[5] != IDLE</label>
+			<label kind="assignment" x="-535" y="76">train_id := stage[5],
+railway_id := 5,
+has_switch := false,
+signal_id := 6</label>
+		</transition>
+		<transition>
+			<source ref="id40"/>
+			<target ref="id41"/>
+			<label kind="guard" x="-578" y="807">stage[1] == IDLE</label>
+		</transition>
+		<transition>
+			<source ref="id39"/>
+			<target ref="id40"/>
+			<label kind="guard" x="-578" y="646">stage[2] == IDLE</label>
+		</transition>
+		<transition>
+			<source ref="id38"/>
+			<target ref="id39"/>
+			<label kind="guard" x="-578" y="484">stage[3] == IDLE</label>
+		</transition>
+		<transition>
+			<source ref="id37"/>
+			<target ref="id38"/>
+			<label kind="guard" x="-578" y="323">stage[4] == IDLE</label>
+		</transition>
+		<transition>
+			<source ref="id36"/>
+			<target ref="id37"/>
+			<label kind="guard" x="-578" y="161">stage[5] == IDLE</label>
+		</transition>
+		<transition>
+			<source ref="id35"/>
+			<target ref="id36"/>
+			<label kind="assignment" x="-578" y="-8">initial()</label>
+		</transition>
+	</template>
+	<system>// Place template instantiations here.
+T = train();
+RW = railway();
+SW = _switch();
+SG = signal();
+RT = router();
+C = controller();
+
+// List one or more processes to be composed into a system.
+system T, RW, SW, SG, RT, C;
+    </system>
+	<queries>
+		<query>
+			<formula>A[] C.APPR imply wait_time&lt;=21</formula>
+			<comment></comment>
+		</query>
+		<query>
+			<formula>A[] C.LOCSW imply checkrailway&lt;4</formula>
+			<comment></comment>
+		</query>
+		<query>
+			<formula>A[] C.LOCFIN imply lockswitch&lt;4</formula>
+			<comment></comment>
+		</query>
+		<query>
+			<formula>A[] C.APPR imply changegreen&lt;4</formula>
+			<comment></comment>
+		</query>
+		<query>
+			<formula>A[] C.TRAINENTER imply trainenter&lt;10</formula>
+			<comment></comment>
+		</query>
+		<query>
+			<formula>A[] C.TRAINLEAVE imply trainleave&lt;200</formula>
+			<comment></comment>
+		</query>
+		<query>
+			<formula>A[] C.UNLOCFIN imply unlockswitch&lt;4</formula>
+			<comment></comment>
+		</query>
+		<query>
+			<formula>A&lt;&gt; SG._GREEN imply (RW.UNOCC &amp;&amp; SW._UNLOCK)</formula>
+			<comment></comment>
+		</query>
+		<query>
+			<formula>A[] not deadlock</formula>
+			<comment></comment>
+		</query>
+		<query>
+			<formula>A[] C.REDFIN imply changered&lt;4</formula>
+			<comment></comment>
+		</query>
+	</queries>
+</nta>
